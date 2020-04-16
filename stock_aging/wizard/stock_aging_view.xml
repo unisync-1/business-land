@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record id="stock_aging_report_wizard_form_view" model="ir.ui.view">
+            <field name="name">stock.aging.report.wizard.form.view</field>
+            <field name="model">stock.aging.report.wizard</field>
+            <field name="arch" type="xml">
+                <form string="Stock Aging Report">
+                    <group>
+                        <field name="location_id"/>
+                        <field name="product_categ_id" />
+                        <field name="product_id" />
+                        <field name="end_date" />
+                        <field name="period_length" />
+                        <field name="company_id" invisible="1"/>
+                    </group>
+                    <footer>
+                        <button name="print_stock_aging_report" string="Print PDF" type="object" class="oe_highlight"/>
+                        <button name="print_stock_aging_xlsx" string="Print XSlSx" type="object" class="oe_highlight"/>
+                        <span> Or </span>
+                        <button string="Cancel" class="oe_link" special="cancel" />
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_stock_aging_report" model="ir.actions.act_window">
+            <field name="name">Stock Aging Report</field>
+            <field name="res_model">stock.aging.report.wizard</field>
+            <field name="view_type">form</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="stock_aging_report_wizard_form_view"/>
+            <field name="target">new</field>
+        </record>
+
+        <menuitem id="stock_aging_report_menu"
+                  action="action_stock_aging_report"
+                  parent="stock.menu_warehouse_report" sequence="200"
+                  groups="stock.group_stock_manager"/>
+    </data>
+</odoo>

@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <record id="internal_transfer_with_cost_form" model="ir.ui.view">
+        <field name="name">transfer.over.locations.form</field>
+        <field name="model">transfer.over.locations</field>
+        <field name="arch" type="xml">
+            <form string="Internal Transfer With Cost">
+
+                <header>
+                        <button name="do_transfer" type="object" string="Transfer"
+                                attrs="{'invisible': [('state', '=', 'transferred')]}"/>
+                        <field name="state" widget="statusbar" statusbar_visible="draft,transferred"/>
+                </header>
+
+                <sheet>
+                     <div class="oe_title">
+                            <h1><field name="name" nolabel="1" readonly="1"/></h1>
+                        </div>
+                    <group>
+                        <field name="reference" attrs="{'readonly': [('state', '=', 'transferred')]}"/>
+                        <field name="source_location_id" required="1"  attrs="{'readonly': [('state', '=', 'transferred')]}"/>
+                        <field name="destination_location_id" required="1"  attrs="{'readonly': [('state', '=', 'transferred')]}"/>
+                    </group>
+                    <notebook>
+                        <page string="Products">
+                            <field name="product_ids" attrs="{'readonly': [('state', '=', 'transferred')]}">
+                                <tree editable="bottom">
+                                    <field name="product_id" />
+                                    <field name="product_tracking" invisible="1"/>
+                                    <field name="quantity" />
+                                    <button name="action_show_lots" string="Choose lots/Serials" type="object"
+                                            icon="fa-list" attrs="{'invisible': [('product_tracking', '=', 'none')]}" />
+
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+
+                </sheet>
+
+            </form>
+        </field>
+    </record>
+
+    <record id="internal_transfer_with_cost_tree" model="ir.ui.view">
+        <field name="name">transfer.over.locations.tree</field>
+        <field name="model">transfer.over.locations</field>
+        <field name="arch" type="xml">
+            <tree string="">
+                <field name="name"/>
+                <field name="reference"/>
+                <field name="source_location_id"/>
+                <field name="destination_location_id"/>
+                <field name="state"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="transfer_over_locations_lines_form" model="ir.ui.view">
+        <field name="name">transfer.over.locations.lines.form</field>
+        <field name="model">transfer.over.locations.lines</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="product_id" readonly="1"/>
+                            <field name="quantity" readonly="1"/>
+                        </group>
+                        <group>
+                            <label for="file_import" style="font-weight: 600;font-size: 13px;" class="oe_form_label oe_inline o_form_label oe_align_right o_align_right" />
+                            <span class="oe_inline">
+                                <field name='file_name' class="oe_inline" invisible='1' />
+                                <field name='file_import' style="margin-left:10px" class="oe_inline" filename='file_name' />
+                                <button class='btn btn-primary oe_inline'   attrs="{'invisible': [('file_import', '=',False)]}"
+                                        style="margin-left: 10px;font-weight: 500; border: 2px solid #fff; box-shadow: 2px 3px 2px 1px #21b799; border-radius: 5px;"
+                                        name='input_file' type='object' string='Validate' />
+                            </span>
+                        </group>
+                    </group>
+
+                    <notebook>
+                        <page string="Serials/Lots">
+                            <field name="lot_ids">
+                                <tree editable="bottom">
+                                    <field name="lot_id" domain="[('product_id', '=', parent.product_id)]"/>
+                                    <field name="quantity"/>
+                                </tree>
+                            </field>
+
+                        </page>
+                    </notebook>
+                </sheet>
+                <footer class="oe_edit_only">
+                        <button string="Confirm" special="save" class="oe_highlight"/>
+                        <button name="action_cancel" string="Discard" special="cancel"/>
+                </footer>
+            </form>
+
+        </field>
+    </record>
+
+    <record id="action_internal_transfer_with_cost" model="ir.actions.act_window">
+        <field name="name">Internal Transfer With Value</field>
+        <field name="type">ir.actions.act_window</field>
+        <field name="res_model">transfer.over.locations</field>
+        <field name="view_type">form</field>
+        <field name="view_mode">tree,form</field>
+        <field name="help" type="html">
+          <p class="oe_view_nocontent_create">
+            <!-- Add Text Here -->
+          </p><p>
+            <!-- More details about what a user can do with this object will be OK -->
+          </p>
+        </field>
+    </record>
+
+    <menuitem id="menu_internal_transfer_with_cost"
+              name="Internal Transfer With Value"
+              action="action_internal_transfer_with_cost"
+              parent="stock.menu_stock_warehouse_mgmt" sequence="100"/>
+
+</odoo>

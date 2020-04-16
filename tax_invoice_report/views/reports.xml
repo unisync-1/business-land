@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <report
+            string="Tax Invoice Report"
+            id="action_report_tax_invoice"
+            model="account.invoice"
+            name="tax_invoice_report.report_tax_invoice"
+            file="tax_invoice_report.report_tax_invoice"
+            report_type="qweb-pdf"
+            print_report_name="('Tax Invoice- %s' % (object.number))"
+        />
+    </data>
+</odoo>

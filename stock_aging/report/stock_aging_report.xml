@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <template id="stock_aging_report">
+            <t t-call="web.html_container">
+                <t t-call="web.external_layout">
+                    <div class="page">
+                            <div class="col-xs-12 text-center">
+                                <h2 style="text-align:center">Stock Aging Report</h2>
+                            </div>
+                            <br/>
+                            <table class="table" style="text-align:left;border-collapse: collapse;">
+                                <tr style="text-align:left;border-collapse: collapse;">
+                                    <td><strong>Company:</strong><span t-esc="data['form']['company_id'][1]"/></td>
+                                    <td><strong>Period Length(Days):</strong><span t-esc="data['form']['period_length']"/></td>
+
+                                    <td><strong>Date:</strong><span t-esc="data['form']['end_date']"/></td>
+                                </tr>
+                                <tr style="text-align:left;border-collapse: collapse;">
+                                    <td><strong>Location:</strong><span t-esc="data['form']['location_id'][1]"/></td>
+                                    <td><strong>Product Category:</strong><span t-esc="data['form']['product_categ_id'][1]"/></td>
+                                    <td></td>
+                                </tr>
+                            </table>
+                            <table class="table table-bordered mb32" style="table-layout:auto">
+                                <thead>
+                                    <tr style="page-break-inside: avoid;">
+                                        <td> <strong>Product</strong></td>
+                                        <t t-foreach="get_period_columns" t-as="period_columns">
+                                            <td style="text-align:center;">
+                                                <strong t-esc="period_columns"/>
+                                            </td>
+                                        </t>
+                                    </tr>
+                                </thead>
+
+                                <tr t-foreach="get_product_data_report" t-as="product_data">
+                                    <td style="text-align:left;">
+                                        <strong t-esc="product_data['product']"/>
+                                    </td>
+                                    <td>
+                                        <span t-esc="product_data['0']"/>
+                                    </td>
+                                    <td>
+                                        <span t-esc="product_data['1']"/>
+                                    </td>
+                                    <td>
+                                        <span t-esc="product_data['2']"/>
+                                    </td>
+                                    <td>
+                                        <span t-esc="product_data['3']"/>
+                                    </td>
+                                    <td>
+                                        <span t-esc="product_data['4']"/>
+                                    </td>
+                                    <td>
+                                        <span t-esc="product_data['5']"/>
+                                    </td>
+                                    <td>
+                                        <span t-esc="product_data['6']"/>
+                                    </td>
+
+                                </tr>
+                            </table>
+
+                        </div>
+                </t>
+            </t>
+        </template>
+
+    </data>
+</odoo>

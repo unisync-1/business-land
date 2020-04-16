@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <data>
+         <report
+            id="stock_aging_report_id"
+            model="stock.quant"
+            string="Stock Aging Report"
+            report_type="qweb-pdf"
+            name="stock_aging.stock_aging_report"
+            file="stock_aging.stock_aging_report"
+            menu="False"
+        />
+
+        <report
+                id="stock_aging_xlsx"
+                model="product.product"
+                string="Stock Aging XLSX Report"
+                report_type="xlsx"
+                name="stock_aging.stock_aging_xlsx"
+                file="stock_aging.stock_aging_xlsx"
+                attachment_use="False"
+                menu="False"/>
+    </data>
+</odoo>

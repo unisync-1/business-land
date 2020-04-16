@@ -1,0 +1,13 @@
+<odoo>
+    <data>
+        <report
+                id="product_avco_report"
+                model="product.product"
+                string="Product AVCO per Location Report"
+                report_type="xlsx"
+                name="product_avco_report.product_avco_report"
+                file="product_avco_report.product_avco_report"
+                attachment_use="False"
+                menu="False"/>
+    </data>
+</odoo>

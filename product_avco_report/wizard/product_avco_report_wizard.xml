@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+	<data>
+		<record id="product_avco_report_wizard" model="ir.ui.view">
+			<field name="name">Product AVCO Report</field>
+			<field name="model">product.avco.report.wizard</field>
+			<field name="arch" type="xml">
+				<form>
+                    <group>
+                        <group>
+                            <field name="date_to" />
+                        </group>
+                    </group>
+                    <group>
+                        <field name="location_ids" required="1" options="{'no_create': True}"
+							widget="many2many_tags"/>
+                    </group>
+					<footer>
+						<button string="Retrieve" class="oe_highlight" type="object" name="print_report" />
+						or
+						<button string="Cancel" class="oe_link" special="cancel" />
+					</footer>
+				</form>
+			</field>
+		</record>
+
+		<record id="action_product_avco_report_wizard" model="ir.actions.act_window">
+			<field name="name">Product AVCO Report</field>
+			<field name="res_model">product.avco.report.wizard</field>
+			<field name="view_type">form</field>
+			<field name="view_mode">form</field>
+			<field name="target">new</field>
+		</record>
+
+		<menuitem
+					id="menu_product_avco_report"
+					name="Product AVCO Per Location"
+					parent="stock.menu_warehouse_report"
+					action="action_product_avco_report_wizard"
+					groups="stock.group_stock_user"/>
+
+    </data>
+</odoo>
