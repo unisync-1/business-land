@@ -248,13 +248,17 @@ class TransferOverLocations(models.Model):
             for product in record.product_ids:
                 available_moves = self.get_product_available_moves(product)
                 all_move_vals += self.get_all_move_vals_for_new_picking(product, location_id, available_moves)
+                # _logger.debug("//////////// available_moves {}".format(available_moves) )
                 all_picking_to_be_returned.update(
                     self.get_all_picking_to_be_returned(all_picking_to_be_returned, product, available_moves))
+            # _logger.debug("//////////// all_picking_to_be_returned {}".format(all_picking_to_be_returned) )
 
             returned_picking_list = self.create_return_pickings(all_picking_to_be_returned, return_picking_type_id)
-            new_picking_list = self.create_receipt_new_picking(in_picking_type_id, location_id, all_move_vals)
-            self.state = 'transferred'
+            # _logger.debug("//////////// returned_picking_list {}".format(returned_picking_list) )
 
+            new_picking_list = self.create_receipt_new_picking(in_picking_type_id, location_id, all_move_vals)
+            record.state = 'transferred'
+            
             return {
                 'domain': [('id', 'in', new_picking_list)],
                 'name': 'Picking',
@@ -278,6 +282,9 @@ class TransferOverLocations(models.Model):
             'origin': picking_id.name,
             'location_id': picking_id.location_dest_id.id,
             'location_dest_id': location_id})
+        # _logger.debug("////////////***********************************"
+        #               " new_picking {}".format(new_picking))
+
         new_picking.message_post_with_view('mail.message_origin_link',
                                            values={'self': new_picking, 'origin': picking_id},
                                            subtype_id=self.env.ref('mail.mt_note').id)
@@ -301,14 +308,23 @@ class TransferOverLocations(models.Model):
         for picking_return_vals in all_picking_to_be_returned.values():
             product_lots = picking_return_vals.get('product_lots').copy() if picking_return_vals.get(
                 'product_lots') else {}
+
             if picking_return_vals.get('product_lots'):
                 del picking_return_vals['product_lots']
+            # _logger.debug("////////////***********************************"
+            #               " picking_return_vals {}".format(picking_return_vals))
+
             stock_picking_return = self.env['stock.return.picking'].create(picking_return_vals)
+            # _logger.debug("////////////***********************************"
+            #               " stock_picking_return {}".format(stock_picking_return))
 
             if stock_picking_return:
                 return_pick_list = self._fifo_create_returns(stock_picking_return, picking_return_vals['location_id'],
                                                              picking_return_vals['picking_id'], return_picking_type_id)
                 return_pick = self.env['stock.picking'].browse(return_pick_list[0])
+                # _logger.debug("////////////***********************************"
+                #               " return_pick {}".format(return_pick))
+
                 if return_pick:
                     # # Validate new picking
                     for return_pick_move in return_pick.move_lines.filtered(
@@ -327,6 +343,7 @@ class TransferOverLocations(models.Model):
 
                     return_pick.action_done()
                 returned_picking_list.append(return_pick)
+       
 
         for product in self.product_ids:
             product_lots = set([lot.lot_id for lot in product.lot_ids])
@@ -336,7 +353,7 @@ class TransferOverLocations(models.Model):
                                  move.move_line_ids])
 
             not_available_lots = product_lots - returned_lots
-
+           
             if not_available_lots:
                 raise ValidationError(_("There is no available quantity For those lots {}".format(
                     [lot.name for lot in not_available_lots])))
