@@ -74,10 +74,12 @@ class TransferOverLocations(models.Model):
                  ('product_id', '=', product.product_id.id),
                  ('lot_id', 'in', product.lot_ids.mapped('lot_id').ids),
                  ('state', 'in', ['done'])]).filtered(lambda sml: sml.move_id and sml.move_id.picking_id)
+
             for available_move in set(available_move_lines.mapped('move_id').filtered(lambda ml: ml.remaining_qty)):
                 available_moves_to_be_returned.append(
                     {'move': available_move, 'move_lines': available_move_lines.filtered(
                         lambda m: m.move_id.id == available_move.id)})
+
         return available_moves_to_be_returned
 
     def get_all_move_vals_for_new_picking(self, product, location_id, available_moves):
@@ -251,7 +253,8 @@ class TransferOverLocations(models.Model):
                 # _logger.debug("//////////// available_moves {}".format(available_moves) )
                 all_picking_to_be_returned.update(
                     self.get_all_picking_to_be_returned(all_picking_to_be_returned, product, available_moves))
-            # _logger.debug("//////////// all_picking_to_be_returned {}".format(all_picking_to_be_returned) )
+            # _logger.debug("////////////************************************************* all_move_vals {}".format(all_move_vals) )
+            # _logger.debug("//////////// ************************************************all_picking_to_be_returned {}".format(all_picking_to_be_returned) )
 
             returned_picking_list = self.create_return_pickings(all_picking_to_be_returned, return_picking_type_id)
             # _logger.debug("//////////// returned_picking_list {}".format(returned_picking_list) )
@@ -336,9 +339,12 @@ class TransferOverLocations(models.Model):
                             product_return_lots = product_lots[return_pick_move.product_id]
                             i = 0
                             for return_move_line in return_pick_move.move_line_ids:
+                                product_uom_qty = return_move_line.product_uom_qty
+
                                 return_move_line.lot_id = \
                                     product_return_lots[return_move_line.move_id.move_orig_ids[0].id][i]
-                                return_move_line.qty_done = return_move_line.product_uom_qty
+                                return_move_line.qty_done = product_uom_qty
+
                                 i += 1
 
                     return_pick.action_done()
@@ -347,13 +353,14 @@ class TransferOverLocations(models.Model):
 
         for product in self.product_ids:
             product_lots = set([lot.lot_id for lot in product.lot_ids])
+            # product_lots = set(product.lot_ids.mapped('lot_id').ids)
             returned_lots = set([move_line.lot_id for picking in returned_picking_list
                                  if picking.state == 'done' for move in picking.move_lines.filtered(
                     lambda m: m.state == 'done' and m.product_id.id == product.product_id.id) for move_line in
                                  move.move_line_ids])
 
             not_available_lots = product_lots - returned_lots
-           
+
             if not_available_lots:
                 raise ValidationError(_("There is no available quantity For those lots {}".format(
                     [lot.name for lot in not_available_lots])))
@@ -380,5 +387,3 @@ class TransferOverLocations(models.Model):
             new_picking.action_done()
             new_picking_list.append(new_picking.id)
         return new_picking_list
-
-
