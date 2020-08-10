@@ -44,10 +44,10 @@ class TransferOverLocations(models.Model):
 
             available_moves = self.env['stock.move'].search([('location_dest_id', '=', self.source_location_id.id),
                                                              ('product_id', '=', product.product_id.id),
-                                                             ('remaining_qty', '>', 0.0),
+                                                             ('quantity_done', '>', 0.0),
                                                              ('picking_id', '!=', False),
                                                              ('state', 'in', ['done'])])
-            available_quantity = sum(available_moves.mapped('remaining_qty') or [0.0])
+            available_quantity = sum(available_moves.mapped('quantity_done') or [0.0])
             if available_quantity < product.quantity:
                 raise ValidationError(
                     _("There is no available quantity for product {} in the source location.\n"
@@ -75,7 +75,7 @@ class TransferOverLocations(models.Model):
                  ('lot_id', 'in', product.lot_ids.mapped('lot_id').ids),
                  ('state', 'in', ['done'])]).filtered(lambda sml: sml.move_id and sml.move_id.picking_id)
 
-            for available_move in set(available_move_lines.mapped('move_id').filtered(lambda ml: ml.remaining_qty)):
+            for available_move in set(available_move_lines.mapped('move_id').filtered(lambda ml: ml.quantity_done)):
                 available_moves_to_be_returned.append(
                     {'move': available_move, 'move_lines': available_move_lines.filtered(
                         lambda m: m.move_id.id == available_move.id)})
@@ -88,11 +88,11 @@ class TransferOverLocations(models.Model):
         all_move_vals = []
         if product.product_id.tracking == 'none':
             for available_move in available_moves:
-                if available_move['move'].remaining_qty <= availability:
-                    quantity = available_move['move'].remaining_qty
+                if available_move['move'].quantity_done <= availability:
+                    quantity = available_move['move'].quantity_done
                 else:
                     quantity = availability
-                cost = available_move['move'].remaining_value / available_move['move'].remaining_qty
+                cost = available_move['move'].value / available_move['move'].quantity_done
 
                 returned_moves.append({'move_id': available_move, 'values': {'quantity': quantity,
                                                                              'cost': cost}})
@@ -114,7 +114,7 @@ class TransferOverLocations(models.Model):
             returned_moves = []
             availability = product.quantity
             for available_move in available_moves:
-                cost = available_move['move'].remaining_value / available_move['move'].remaining_qty
+                cost = available_move['move'].value / available_move['move'].quantity_done
                 quantity = sum(line.qty_done for line in available_move['move_lines'])
                 location_id = available_move['move'].picking_id.location_id
 
@@ -158,8 +158,8 @@ class TransferOverLocations(models.Model):
 
         if product.product_id.tracking == 'none':
             for available_move in available_moves:
-                if available_move['move'].remaining_qty <= availability:
-                    quantity = available_move['move'].remaining_qty
+                if available_move['move'].quantity_done <= availability:
+                    quantity = available_move['move'].quantity_done
                 else:
                     quantity = availability
                 product_return_moves_vals = {'product_id': product.product_id.id,
