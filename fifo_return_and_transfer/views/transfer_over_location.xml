@@ -7,8 +7,12 @@
             <form string="Internal Transfer With Cost">
 
                 <header>
-                        <button name="do_transfer" type="object" string="Transfer"
-                                attrs="{'invisible': [('state', '=', 'transferred')]}"/>
+                    <button name="check_available_moves" type="object" string="Check Availability"
+                                attrs="{'invisible': [('state', '!=', 'draft')]}"/>
+                    <button name="action_confirm" type="object" string="Confirm"
+                                attrs="{'invisible': [('state', '!=', 'available')]}"/>
+                    <button name="do_transfer" type="object" string="Transfer"
+                                attrs="{'invisible': [('state', '!=', 'confirmed')]}"/>
                         <field name="state" widget="statusbar" statusbar_visible="draft,transferred"/>
                 </header>
 
@@ -17,13 +21,13 @@
                             <h1><field name="name" nolabel="1" readonly="1"/></h1>
                         </div>
                     <group>
-                        <field name="reference" attrs="{'readonly': [('state', '=', 'transferred')]}"/>
-                        <field name="source_location_id" required="1"  attrs="{'readonly': [('state', '=', 'transferred')]}"/>
-                        <field name="destination_location_id" required="1"  attrs="{'readonly': [('state', '=', 'transferred')]}"/>
+                        <field name="reference" attrs="{'readonly': [('state', '!=', 'draft')]}"/>
+                        <field name="source_location_id" required="1"  attrs="{'readonly': [('state', '!=', 'draft')]}"/>
+                        <field name="destination_location_id" required="1"  attrs="{'readonly': [('state', '!=', 'draft')]}"/>
                     </group>
                     <notebook>
                         <page string="Products">
-                            <field name="product_ids" attrs="{'readonly': [('state', '=', 'transferred')]}">
+                            <field name="product_ids" attrs="{'readonly': [('state', '!=', 'draft')]}">
                                 <tree editable="bottom">
                                     <field name="product_id" />
                                     <field name="product_tracking" invisible="1"/>
@@ -34,6 +38,12 @@
                                 </tree>
                             </field>
                         </page>
+                        <!--<page>-->
+                            <!--<field name="all_picking_to_be_returned" />-->
+                        <!--</page>-->
+                        <!--<page>-->
+                            <!--<field name="all_move_vals" />-->
+                        <!--</page>-->
                     </notebook>
 
                 </sheet>
