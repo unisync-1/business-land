@@ -22,6 +22,7 @@
                         </div>
                     <group>
                         <field name="reference" attrs="{'readonly': [('state', '!=', 'draft')]}"/>
+                        <field name="company_id" attrs="{'readonly': [('state', '!=', 'draft')]}"/>
                         <field name="source_location_id" required="1"  attrs="{'readonly': [('state', '!=', 'draft')]}"/>
                         <field name="destination_location_id" required="1"  attrs="{'readonly': [('state', '!=', 'draft')]}"/>
                     </group>

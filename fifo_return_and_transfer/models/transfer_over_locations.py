@@ -25,6 +25,7 @@ class TransferOverLocations(models.Model):
     name = fields.Char("Name", default="/", readonly=True, required=True)
     all_picking_to_be_returned = fields.Text()
     all_move_vals = fields.Text()
+    company_id = fields.Many2one('res.company', string='Company', index=True, required=1, default=lambda self: self.env.user.company_id)
 
     @api.model
     def create(self, vals):
@@ -83,8 +84,8 @@ class TransferOverLocations(models.Model):
             if not record.product_ids:
                 raise ValidationError(_("There is no products to transfer"))
 
-            in_picking_type_id = self.env.user.company_id.internal_receipt_id
-            return_picking_type_id = self.env.user.company_id.return_picking_type_id
+            in_picking_type_id = record.company_id.internal_receipt_id
+            return_picking_type_id = record.company_id.return_picking_type_id
             if not in_picking_type_id or not return_picking_type_id:
                 raise ValidationError(_("There is no Picking Types for internal transfer"))
 
@@ -94,8 +95,8 @@ class TransferOverLocations(models.Model):
 
     @api.model
     def _prepare_picking(self, is_return=False):
-        return_picking_type_id = self.env.user.company_id.return_picking_type_id
-        in_picking_type_id = self.env.user.company_id.internal_receipt_id
+        return_picking_type_id = self.company_id.return_picking_type_id
+        in_picking_type_id = self.company_id.internal_receipt_id
         customer_location_id, vendor_location_id = self.env["stock.warehouse"]._get_partner_locations()
         return {
             'picking_type_id': return_picking_type_id.id if is_return else in_picking_type_id.id,
@@ -103,7 +104,7 @@ class TransferOverLocations(models.Model):
             'origin': self.name,
             'location_dest_id': vendor_location_id.id if is_return else self.destination_location_id.id,
             'location_id': self.source_location_id.id if is_return else vendor_location_id.id,
-            'company_id': self.env.user.company_id.id,
+            'company_id': self.company_id.id,
         }
 
     def _prepare_stock_moves(self, line, picking):
@@ -164,7 +165,7 @@ class TransferOverLocations(models.Model):
             remaining_lot_lines_without_moves = line.lot_ids - lot_line_ids_from_moves
         else:
             remaining_lot_lines_without_moves = line.lot_ids
-            
+
         if remaining_lot_lines_without_moves:
             vals.append(
                 {

@@ -12,6 +12,7 @@
     'data': [
         'data/data.xml',
         'security/ir.model.access.csv',
+        'security/security.xml',
         'views/setting_view.xml',
         'views/transfer_over_location.xml',
     ],
