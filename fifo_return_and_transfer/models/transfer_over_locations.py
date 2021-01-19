@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import time
+
 import logging
 from odoo import models, fields, api, _
 from odoo.exceptions import ValidationError
@@ -26,6 +28,39 @@ class TransferOverLocations(models.Model):
     all_picking_to_be_returned = fields.Text()
     all_move_vals = fields.Text()
     company_id = fields.Many2one('res.company', string='Company', index=True, required=1, default=lambda self: self.env.user.company_id)
+
+    def update_vals(self):
+        for transfer in self:
+            source_location_id = transfer.source_location_id.id
+            if len(transfer.product_ids) > 1:
+                sql = "UPDATE transfer_over_locations_lines SET source_location_id = " + str(
+                    source_location_id) + " where id in" + str(tuple(transfer.product_ids.ids))
+                sql2 = "UPDATE transfer_over_locations_lot_lines SET source_location_id = " + str(
+                    source_location_id) + " where line_id in" + str(tuple(transfer.product_ids.ids))
+            else:
+                sql = "UPDATE transfer_over_locations_lines SET source_location_id = " + str(
+                    source_location_id) + " where id =" + str(transfer.product_ids.ids[0])
+                sql2 = "UPDATE transfer_over_locations_lot_lines SET source_location_id = " + str(
+                    source_location_id) + " where line_id =" + str(transfer.product_ids.ids[0])
+
+            self.env.cr.execute(sql)
+            self.env.cr.execute(sql2)
+
+            lot_lines = transfer.product_ids.mapped('lot_ids')
+            move_lines = self.env['stock.move.line'].sudo().search(
+                [("location_dest_id", "=", source_location_id),
+                 ("product_id", "in", transfer.product_ids.mapped('product_id').ids),
+                 ("lot_id", "in", lot_lines.mapped('lot_id').ids),
+                 ("state", "in", ["done"])])
+
+            for lot_line in lot_lines:
+                mv_lines = filter(lambda x: x.lot_id == lot_line.lot_id, move_lines)
+                for move_line in mv_lines:
+                    origin_move_id = move_line.move_id.id
+                    sql = "UPDATE transfer_over_locations_lot_lines SET origin_move_id = " + str(
+                        origin_move_id) + " where id =" + str(lot_line.id)
+                    self.env.cr.execute(sql)
+                    break
 
     @api.model
     def create(self, vals):
@@ -102,6 +137,128 @@ class TransferOverLocations(models.Model):
             'company_id': self.company_id.id,
         }
 
+    # Old Implementation
+    # def _prepare_stock_moves(self, line, picking):
+    #     self.ensure_one()
+    #     vals = []
+    #     # Lot tracking
+    #     if line.product_id.tracking == "lot":
+    #         raise ValidationError(_(
+    #             "You Can not transfer product {}. Only available transfer products with Serials or no tracking.\n".format(
+    #                 line.product_id.name)))
+    #
+    #     # No tracking
+    #     elif line.product_id.tracking == "none":
+    #         moves = self.env['stock.move.line'].sudo().search(
+    #             [("location_dest_id", "=", self.source_location_id.id),
+    #              ("product_id", "=", line.product_id.id),
+    #              ("state", "in", ["done"])], order='date, id desc').mapped('move_id')
+    #
+    #         vals.append({
+    #                 'name': self.name,
+    #                 'origin': picking.name or self.name,
+    #                 'product_id': line.product_id.id,
+    #                 'product_uom': line.product_id.uom_id.id,
+    #                 'product_uom_qty': line.quantity,
+    #                 'location_id': picking.location_id.id,
+    #                 'location_dest_id': picking.location_dest_id.id,
+    #                 'price_unit': moves[0]['price_unit'] if moves else 0.0,
+    #                 'value': moves[0]['price_unit'] * line.quantity if moves else 0.0,
+    #                 'move_line_ids': [(0, 0, {'product_id': line.product_id.id,
+    #                                           'product_uom_id': line.product_id.uom_id.id,
+    #                                           'product_uom_qty': line.quantity,
+    #                                           'qty_done': line.quantity,
+    #                                           'location_id': picking.location_id.id,
+    #                                           'location_dest_id': picking.location_dest_id.id,})],
+    #                 'picking_id': picking.id
+    #             })
+    #
+    #     # Serial tracking
+    #     elif line.product_id.tracking == "serial":
+    #         if not line.lot_ids:
+    #             raise ValidationError(
+    #                 _("You need to supply a Lot/Serial number for product {} ".format(line.product_id.name)))
+    #
+    #         move_lines = self.env['stock.move.line'].sudo().search([("location_dest_id", "=", self.source_location_id.id),
+    #                  ("product_id", "=", line.product_id.id),
+    #                  ("lot_id", "in", line.lot_ids.mapped("lot_id").ids),
+    #                  ("state", "in", ["done"])])
+    #
+    #         moves_dict = {}
+    #         lot_line_ids_from_moves = self.env['transfer.over.locations.lines']
+    #         for move_line in move_lines:
+    #             lot_line_ids = line.lot_ids.filtered(lambda x: x.lot_id == move_line.lot_id)
+    #             if lot_line_ids_from_moves:
+    #                 lot_line_ids_from_moves += lot_line_ids
+    #             else:
+    #                 lot_line_ids_from_moves = lot_line_ids
+    #
+    #             quantity = sum(lot_line_ids.mapped('quantity'))
+    #             if move_line.move_id in moves_dict:
+    #                 moves_dict[move_line.move_id]['lot_line_ids'] += lot_line_ids
+    #                 moves_dict[move_line.move_id]['quantity'] += quantity
+    #                 moves_dict[move_line.move_id]['value'] += move_line.move_id.price_unit * quantity
+    #             else:
+    #                 moves_dict[move_line.move_id] = {
+    #                     'move_id': move_line.move_id,
+    #                     'price_unit': move_line.move_id.price_unit,
+    #                     'value': move_line.move_id.price_unit * quantity,
+    #                     'lot_line_ids': lot_line_ids,
+    #                     'quantity': quantity
+    #                 }
+    #
+    #         for key in moves_dict:
+    #             vals.append(
+    #                 {
+    #                     'name': self.name,
+    #                     'origin': picking.name or self.name,
+    #                     'product_id': line.product_id.id,
+    #                     'product_uom': line.product_id.uom_id.id,
+    #                     'product_uom_qty': moves_dict[key]['quantity'],
+    #                     'location_id': picking.location_id.id,
+    #                     'location_dest_id': picking.location_dest_id.id,
+    #                     'price_unit': moves_dict[key]['price_unit'],
+    #                     'value': moves_dict[key]['value'],
+    #                     'move_line_ids': [(0, 0, {'product_id': line.product_id.id,
+    #                                               'product_uom_id': line.product_id.uom_id.id,
+    #                                               'product_uom_qty': l.quantity,
+    #                                               'qty_done': l.quantity,
+    #                                               'location_id': picking.location_id.id,
+    #                                               'location_dest_id': picking.location_dest_id.id,
+    #                                               'lot_id': l.lot_id.id, }) for l in moves_dict[key]['lot_line_ids']],
+    #                     'picking_id': picking.id
+    #                 }
+    #             )
+    #
+    #         if lot_line_ids_from_moves:
+    #             remaining_lot_lines_without_moves = line.lot_ids - lot_line_ids_from_moves
+    #         else:
+    #             remaining_lot_lines_without_moves = line.lot_ids
+    #
+    #         if remaining_lot_lines_without_moves:
+    #             vals.append(
+    #                 {
+    #                     'name': self.name,
+    #                     'origin': picking.name or self.name,
+    #                     'product_id': line.product_id.id,
+    #                     'product_uom': line.product_id.uom_id.id,
+    #                     'product_uom_qty': sum(remaining_lot_lines_without_moves.mapped('quantity')),
+    #                     'location_id': picking.location_id.id,
+    #                     'location_dest_id': picking.location_dest_id.id,
+    #                     'price_unit': 0,
+    #                     'value': 0,
+    #                     'move_line_ids': [(0, 0, {'product_id': line.product_id.id,
+    #                                               'product_uom_id': line.product_id.uom_id.id,
+    #                                               'product_uom_qty': l.quantity,
+    #                                               'qty_done': l.quantity,
+    #                                               'location_id': picking.location_id.id,
+    #                                               'location_dest_id': picking.location_dest_id.id,
+    #                                               'lot_id': l.lot_id.id, }) for l in remaining_lot_lines_without_moves],
+    #                     'picking_id': picking.id
+    #                 }
+    #             )
+    #     return vals
+
     def _prepare_stock_moves(self, line, picking):
         self.ensure_one()
         vals = []
@@ -143,62 +300,34 @@ class TransferOverLocations(models.Model):
                 raise ValidationError(
                     _("You need to supply a Lot/Serial number for product {} ".format(line.product_id.name)))
 
-            move_lines = self.env['stock.move.line'].sudo().search([("location_dest_id", "=", self.source_location_id.id),
-                     ("product_id", "=", line.product_id.id),
-                     ("lot_id", "in", line.lot_ids.mapped("lot_id").ids),
-                     ("state", "in", ["done"])])
-
-            moves_dict = {}
-            lot_line_ids_from_moves = self.env['transfer.over.locations.lines']
-            for move_line in move_lines:
-                lot_line_ids = line.lot_ids.filtered(lambda x: x.lot_id == move_line.lot_id)
-                if lot_line_ids_from_moves:
-                    lot_line_ids_from_moves += lot_line_ids
-                else:
-                    lot_line_ids_from_moves = lot_line_ids
-
-                quantity = sum(lot_line_ids.mapped('quantity'))
-                if move_line.move_id in moves_dict:
-                    moves_dict[move_line.move_id]['lot_line_ids'] += lot_line_ids
-                    moves_dict[move_line.move_id]['quantity'] += quantity
-                    moves_dict[move_line.move_id]['value'] += move_line.move_id.price_unit * quantity
-                else:
-                    moves_dict[move_line.move_id] = {
-                        'move_id': move_line.move_id,
-                        'price_unit': move_line.move_id.price_unit,
-                        'value': move_line.move_id.price_unit * quantity,
-                        'lot_line_ids': lot_line_ids,
-                        'quantity': quantity
-                    }
-
-            for key in moves_dict:
+            moves = line.lot_ids.filtered(lambda x: x.origin_move_id).mapped("origin_move_id")
+            for move in moves:
+                lot_lines = line.lot_ids.filtered(lambda x: x.origin_move_id == move)
+                total_qty = sum(lot_lines.mapped("quantity"))
+                total_value = total_qty * move.price_unit
                 vals.append(
                     {
                         'name': self.name,
                         'origin': picking.name or self.name,
                         'product_id': line.product_id.id,
                         'product_uom': line.product_id.uom_id.id,
-                        'product_uom_qty': moves_dict[key]['quantity'],
+                        'product_uom_qty': total_qty,
                         'location_id': picking.location_id.id,
                         'location_dest_id': picking.location_dest_id.id,
-                        'price_unit': moves_dict[key]['price_unit'],
-                        'value': moves_dict[key]['value'],
+                        'price_unit': move.price_unit,
+                        'value': total_value,
                         'move_line_ids': [(0, 0, {'product_id': line.product_id.id,
                                                   'product_uom_id': line.product_id.uom_id.id,
                                                   'product_uom_qty': l.quantity,
                                                   'qty_done': l.quantity,
                                                   'location_id': picking.location_id.id,
                                                   'location_dest_id': picking.location_dest_id.id,
-                                                  'lot_id': l.lot_id.id, }) for l in moves_dict[key]['lot_line_ids']],
+                                                  'lot_id': l.lot_id.id, }) for l in lot_lines],
                         'picking_id': picking.id
                     }
                 )
 
-            if lot_line_ids_from_moves:
-                remaining_lot_lines_without_moves = line.lot_ids - lot_line_ids_from_moves
-            else:
-                remaining_lot_lines_without_moves = line.lot_ids
-
+            remaining_lot_lines_without_moves = line.lot_ids.filtered(lambda x: not x.origin_move_id)
             if remaining_lot_lines_without_moves:
                 vals.append(
                     {

@@ -15,6 +15,7 @@ class TransferOverLocationsLines(models.Model):
     product_tracking = fields.Selection(related="product_id.tracking")
     quantity = fields.Float(default=1.0)
     transfer_id = fields.Many2one(comodel_name="transfer.over.locations", required=True, ondelete='cascade')
+    source_location_id = fields.Many2one("stock.location", string="Source Location")
 
     lot_ids = fields.One2many(comodel_name="transfer.over.locations.lot.lines", inverse_name="line_id",
                               string="Lots/Serials")
@@ -91,6 +92,15 @@ class TransferOverLocationsLines(models.Model):
 
         }
 
+    @api.model
+    def create(self, vals):
+        res = super(TransferOverLocationsLines, self).create(vals)
+        if res.transfer_id.source_location_id:
+            res.write({
+                'source_location_id': res.transfer_id.source_location_id.id
+            })
+        return res
+
 
 class TransferOverLocationsLotLines(models.Model):
     _name = 'transfer.over.locations.lot.lines'
@@ -99,3 +109,40 @@ class TransferOverLocationsLotLines(models.Model):
     line_id = fields.Many2one(comodel_name="transfer.over.locations.lines", required=True, ondelete='cascade')
     product_id = fields.Many2one(comodel_name="product.product", related="line_id.product_id", readonly=True)
     quantity = fields.Float(default=1.0)
+
+    origin_move_id = fields.Many2one('stock.move', string="Origin Move")
+    source_location_id = fields.Many2one("stock.location", string="Source Location")
+
+    @api.model
+    def create(self, vals):
+        res = super(TransferOverLocationsLotLines, self).create(vals)
+        origin_move_id = False
+        if res.line_id.source_location_id:
+            source_location_id = res.line_id.source_location_id.id
+            moves = self.env['stock.move.line'].sudo().search(
+                [("location_dest_id", "=", res.line_id.source_location_id.id),
+                 ("product_id", "=", res.product_id.id),
+                 ("lot_id", "=", res.lot_id.id),
+                 ("state", "in", ["done"])]).mapped('move_id')
+            if moves:
+                origin_move_id = moves[0].id
+            res.write({
+                'source_location_id': source_location_id,
+                'origin_move_id': origin_move_id
+            })
+        return res
+
+
+
+    # @api.depends('source_location_id', 'product_id', 'lot_id')
+    # def get_origin_moves(self):
+    #     for rec in self:
+    #         moves = self.env['stock.move.line'].sudo().search(
+    #             [("location_dest_id", "=", rec.source_location_id.id),
+    #              ("product_id", "=", rec.product_id.id),
+    #              ("lot_id", "=", rec.lot_id.id),
+    #              ("state", "in", ["done"])]).mapped('move_id')
+    #         if moves:
+    #             rec.origin_move_id = moves[0].id
+    #         else:
+    #             rec.origin_move_id = False
