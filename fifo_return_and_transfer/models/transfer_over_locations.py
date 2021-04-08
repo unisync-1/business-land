@@ -29,38 +29,43 @@ class TransferOverLocations(models.Model):
     all_move_vals = fields.Text()
     company_id = fields.Many2one('res.company', string='Company', index=True, required=1, default=lambda self: self.env.user.company_id)
 
-    def update_vals(self):
-        for transfer in self:
-            source_location_id = transfer.source_location_id.id
-            if len(transfer.product_ids) > 1:
-                sql = "UPDATE transfer_over_locations_lines SET source_location_id = " + str(
-                    source_location_id) + " where id in" + str(tuple(transfer.product_ids.ids))
-                sql2 = "UPDATE transfer_over_locations_lot_lines SET source_location_id = " + str(
-                    source_location_id) + " where line_id in" + str(tuple(transfer.product_ids.ids))
-            else:
-                sql = "UPDATE transfer_over_locations_lines SET source_location_id = " + str(
-                    source_location_id) + " where id =" + str(transfer.product_ids.ids[0])
-                sql2 = "UPDATE transfer_over_locations_lot_lines SET source_location_id = " + str(
-                    source_location_id) + " where line_id =" + str(transfer.product_ids.ids[0])
+    def update_transfer_relation_vals(self):
+        for rec in self:
+            self.env.cr.execute(''' 
+              WITH transfer AS (
+              SELECT id, source_location_id
+              FROM  transfer_over_locations
+              Where id = %s
+              )
+              UPDATE transfer_over_locations_lines AS p_line
+              SET    source_location_id = transfer.source_location_id
+              FROM   transfer
+              WHERE  p_line.transfer_id = transfer.id;
+              ''' % (str(rec.id)))
 
-            self.env.cr.execute(sql)
-            self.env.cr.execute(sql2)
+            self.env.cr.execute(''' 
+        	WITH p_line AS (
+        	SELECT id, source_location_id, transfer_id
+        	FROM  transfer_over_locations_lines
+        	Where transfer_id = %s
+        	)
+        	UPDATE transfer_over_locations_lot_lines AS lot_line
+        	SET    source_location_id = p_line.source_location_id, transfer_id = p_line.transfer_id
+        	FROM   p_line
+        	WHERE  lot_line.line_id = p_line.id;
+        	''' % (str(rec.id)))
 
-            lot_lines = transfer.product_ids.mapped('lot_ids')
-            move_lines = self.env['stock.move.line'].sudo().search(
-                [("location_dest_id", "=", source_location_id),
-                 ("product_id", "in", transfer.product_ids.mapped('product_id').ids),
-                 ("lot_id", "in", lot_lines.mapped('lot_id').ids),
-                 ("state", "in", ["done"])])
-
-            for lot_line in lot_lines:
-                mv_lines = filter(lambda x: x.lot_id == lot_line.lot_id, move_lines)
-                for move_line in mv_lines:
-                    origin_move_id = move_line.move_id.id
-                    sql = "UPDATE transfer_over_locations_lot_lines SET origin_move_id = " + str(
-                        origin_move_id) + " where id =" + str(lot_line.id)
-                    self.env.cr.execute(sql)
-                    break
+            self.env.cr.execute(''' 
+        	WITH sml AS (
+        	SELECT id, move_id, lot_id, location_dest_id
+        	FROM  stock_move_line
+        	Where state = 'done'
+        	)
+        	UPDATE transfer_over_locations_lot_lines AS lot_line
+        	SET    origin_move_id = sml.move_id 
+        	FROM   sml
+        	WHERE  lot_line.lot_id = sml.lot_id AND lot_line.source_location_id = sml.location_dest_id AND lot_line.transfer_id = %s;
+        	''' % (str(rec.id)))
 
     @api.model
     def create(self, vals):
@@ -110,6 +115,8 @@ class TransferOverLocations(models.Model):
 
     def check_available_moves(self):
         for record in self:
+            record.update_transfer_relation_vals()
+
             # Validation
             if not record.product_ids:
                 raise ValidationError(_("There is no products to transfer"))
@@ -261,6 +268,9 @@ class TransferOverLocations(models.Model):
 
     def _prepare_stock_moves(self, line, picking):
         self.ensure_one()
+
+        sign = -1 if self._context.get('is_return', False) else 1
+
         vals = []
         # Lot tracking
         if line.product_id.tracking == "lot":
@@ -283,8 +293,8 @@ class TransferOverLocations(models.Model):
                     'product_uom_qty': line.quantity,
                     'location_id': picking.location_id.id,
                     'location_dest_id': picking.location_dest_id.id,
-                    'price_unit': moves[0]['price_unit'] if moves else 0.0,
-                    'value': moves[0]['price_unit'] * line.quantity if moves else 0.0,
+                    'price_unit': (sign * moves[0]['price_unit']) if moves else 0.0,
+                    'value': (sign * moves[0]['price_unit'] * line.quantity) if moves else 0.0,
                     'move_line_ids': [(0, 0, {'product_id': line.product_id.id,
                                               'product_uom_id': line.product_id.uom_id.id,
                                               'product_uom_qty': line.quantity,
@@ -314,8 +324,8 @@ class TransferOverLocations(models.Model):
                         'product_uom_qty': total_qty,
                         'location_id': picking.location_id.id,
                         'location_dest_id': picking.location_dest_id.id,
-                        'price_unit': move.price_unit,
-                        'value': total_value,
+                        'price_unit': sign * move.price_unit,
+                        'value': sign * total_value,
                         'move_line_ids': [(0, 0, {'product_id': line.product_id.id,
                                                   'product_uom_id': line.product_id.uom_id.id,
                                                   'product_uom_qty': l.quantity,
@@ -380,7 +390,7 @@ class TransferOverLocations(models.Model):
         for record in self:
             if not record.state == 'available':
                 continue
-            record.create_return_picking()
+            record.with_context(skip_value_update=True, is_return=True).create_return_picking()
             record.state = "confirmed"
         return True
 

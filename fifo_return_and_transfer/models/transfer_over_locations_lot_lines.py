@@ -112,37 +112,4 @@ class TransferOverLocationsLotLines(models.Model):
 
     origin_move_id = fields.Many2one('stock.move', string="Origin Move")
     source_location_id = fields.Many2one("stock.location", string="Source Location")
-
-    @api.model
-    def create(self, vals):
-        res = super(TransferOverLocationsLotLines, self).create(vals)
-        origin_move_id = False
-        if res.line_id.source_location_id:
-            source_location_id = res.line_id.source_location_id.id
-            moves = self.env['stock.move.line'].sudo().search(
-                [("location_dest_id", "=", res.line_id.source_location_id.id),
-                 ("product_id", "=", res.product_id.id),
-                 ("lot_id", "=", res.lot_id.id),
-                 ("state", "in", ["done"])]).mapped('move_id')
-            if moves:
-                origin_move_id = moves[0].id
-            res.write({
-                'source_location_id': source_location_id,
-                'origin_move_id': origin_move_id
-            })
-        return res
-
-
-
-    # @api.depends('source_location_id', 'product_id', 'lot_id')
-    # def get_origin_moves(self):
-    #     for rec in self:
-    #         moves = self.env['stock.move.line'].sudo().search(
-    #             [("location_dest_id", "=", rec.source_location_id.id),
-    #              ("product_id", "=", rec.product_id.id),
-    #              ("lot_id", "=", rec.lot_id.id),
-    #              ("state", "in", ["done"])]).mapped('move_id')
-    #         if moves:
-    #             rec.origin_move_id = moves[0].id
-    #         else:
-    #             rec.origin_move_id = False
+    transfer_id = fields.Many2one(comodel_name="transfer.over.locations")
